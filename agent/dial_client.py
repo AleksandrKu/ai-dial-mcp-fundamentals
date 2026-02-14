@@ -11,8 +11,16 @@ from agent.mcp_client import MCPClient
 class DialClient:
     """Handles AI model interactions and integrates with MCP client"""
 
-    def __init__(self, api_key: str, endpoint: str, tools: list[dict[str, Any]], mcp_client: MCPClient):
+    def __init__(
+        self,
+        api_key: str,
+        endpoint: str,
+        model: str,
+        tools: list[dict[str, Any]],
+        mcp_client: MCPClient,
+    ):
         self.tools = tools
+        self.model = model
         self.mcp_client = mcp_client
         self.openai = AsyncAzureOpenAI(
             api_key=api_key,
@@ -37,7 +45,7 @@ class DialClient:
         """Stream OpenAI response and handle tool calls"""
         stream = await self.openai.chat.completions.create(
             **{
-                "model": "gpt-4o",
+                "model": self.model,
                 "messages": [msg.to_dict() for msg in messages],
                 "tools": self.tools,
                 "temperature": 0.0,
@@ -83,9 +91,27 @@ class DialClient:
 
     async def _call_tools(self, ai_message: Message, messages: list[Message]):
         """Execute tool calls using MCP client"""
-        #TODO:
-        # 1. Iterate through tool_calls
-        # 2. Get tool name and tool arguments (arguments is a JSON, don't forget about that)
-        # 3. Wrap into try/except block and call mcp_client tool call. If succeed then add tool message (don't forget
-        #    about tool call id), otherwise add tool message with error message (it kind of fallback strategy).
-        raise NotImplementedError()
+        for tool_call in ai_message.tool_calls:
+            tool_name = tool_call["function"]["name"]
+            tool_args = json.loads(tool_call["function"]["arguments"])
+            tool_call_id = tool_call["id"]
+
+            try:
+                # Call the tool via MCP client
+                result = await self.mcp_client.call_tool(tool_name, tool_args)
+
+                # Add successful tool result message
+                messages.append(Message(
+                    role=Role.TOOL,
+                    content=str(result),
+                    tool_call_id=tool_call_id,
+                    name=tool_name
+                ))
+            except Exception as e:
+                # Add error message as tool result
+                messages.append(Message(
+                    role=Role.TOOL,
+                    content=f"Error executing {tool_name}: {str(e)}",
+                    tool_call_id=tool_call_id,
+                    name=tool_name
+                ))
