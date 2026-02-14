@@ -89,8 +89,8 @@ class MCPClient:
             print(f"Error getting resources: {e}")
             return []
 
-    async def get_resource(self, uri: AnyUrl) -> str:
-        """Get specific resource content"""
+    async def get_resource(self, uri: AnyUrl) -> str | bytes:
+        """Get specific resource content. Returns str for text resources, bytes for binary (e.g. image/png)."""
         if not self.session:
             raise RuntimeError("MCP client not connected.")
 
