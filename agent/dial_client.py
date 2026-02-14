@@ -93,11 +93,11 @@ class DialClient:
         """Execute tool calls using MCP client"""
         for tool_call in ai_message.tool_calls:
             tool_name = tool_call["function"]["name"]
-            tool_args = json.loads(tool_call["function"]["arguments"])
             tool_call_id = tool_call["id"]
 
             try:
                 # Call the tool via MCP client
+                tool_args = json.loads(tool_call["function"]["arguments"])
                 result = await self.mcp_client.call_tool(tool_name, tool_args)
 
                 # Add successful tool result message
