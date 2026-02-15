@@ -1,5 +1,4 @@
 import asyncio
-import json
 import os
 
 from mcp import Resource
@@ -16,18 +15,16 @@ load_dotenv()
 
 API_KEY = os.getenv('DIAL_API_KEY', '')
 DIAL_URL = os.getenv('DIAL_URL', '')
-MCP_SERVER_URL = os.getenv('MCP_SERVER_URL', '')
 
-if not API_KEY or not DIAL_URL or not MCP_SERVER_URL:
-    raise ValueError("Missing required environment variables: DIAL_API_KEY, DIAL_URL, MCP_SERVER_URL")
+if not API_KEY or not DIAL_URL:
+    raise ValueError("Missing required environment variables: DIAL_API_KEY, DIAL_URL")
 
 # https://remote.mcpservers.org/fetch/mcp
 # Pay attention that `fetch` doesn't have resources and prompts
 
 async def main():
-    # Create MCP client and connect to MCP server
-    # 1. Create MCP client using async context manager with mcp_server_url
-    async with MCPClient(mcp_server_url=MCP_SERVER_URL) as mcp_client:
+    # Create MCP client and connect to local users-management MCP server over stdio
+    async with MCPClient() as mcp_client:
 
         # Get available MCP resources
         # 2. Fetch all resources from MCP server and display them

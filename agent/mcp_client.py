@@ -1,7 +1,8 @@
+from pathlib import Path
 from typing import Optional, Any
 
-from mcp import ClientSession
-from mcp.client.streamable_http import streamable_http_client
+from mcp import ClientSession, StdioServerParameters
+from mcp.client.stdio import stdio_client
 from mcp.types import CallToolResult, TextContent, GetPromptResult, ReadResourceResult, Resource, TextResourceContents, BlobResourceContents, Prompt
 from pydantic import AnyUrl
 
@@ -9,42 +10,36 @@ from pydantic import AnyUrl
 class MCPClient:
     """Handles MCP server connection and tool execution"""
 
-    def __init__(self, mcp_server_url: str) -> None:
-        self.mcp_server_url = mcp_server_url
+    def __init__(self, server_params: Optional[StdioServerParameters] = None) -> None:
+        server_script = Path(__file__).resolve().parents[1] / "mcp_server" / "server.py"
+        self.server_params = server_params or StdioServerParameters(
+            command="python3",
+            args=[str(server_script)],
+        )
         self.session: Optional[ClientSession] = None
-        self._streams_context = None
+        self._stdio_context = None
         self._session_context = None
 
     async def __aenter__(self):
-        # Establish connection to MCP server using streamable HTTP client
-        # 1. Call `streamable_http_client` method with `mcp_server_url` and assign to `self._streams_context`
-        self._streams_context = streamable_http_client(self.mcp_server_url)
+        # Establish connection to MCP server using stdio transport
+        self._stdio_context = stdio_client(self.server_params)
+        read_stream, write_stream = await self._stdio_context.__aenter__()
 
-        # 2. Call `await self._streams_context.__aenter__()` and assign to `read_stream, write_stream, _`
-        read_stream, write_stream, _ = await self._streams_context.__aenter__()
-
-        # 3. Create `ClientSession(read_stream, write_stream)` and assign to `self._session_context`
         self._session_context = ClientSession(read_stream, write_stream)
-
-        # 4. Call `await self._session_context.__aenter__()` and assign it to `self.session`
         self.session = await self._session_context.__aenter__()
 
-        # 5. Call `self.session.initialize()`, and print its result (to check capabilities of MCP server later)
         init_result = await self.session.initialize()
         print(f"MCP Server initialized: {init_result}")
 
-        # 6. return self
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         # Shutdown MCP client connections
-        # If session is present and session context is present as well then shutdown the session context (__aexit__ method with params)
         if self.session and self._session_context:
             await self._session_context.__aexit__(exc_type, exc_val, exc_tb)
 
-        # If streams context is present then shutdown the streams context (__aexit__ method with params)
-        if self._streams_context:
-            await self._streams_context.__aexit__(exc_type, exc_val, exc_tb)
+        if self._stdio_context:
+            await self._stdio_context.__aexit__(exc_type, exc_val, exc_tb)
 
     async def get_tools(self) -> list[dict[str, Any]]:
         """Get available tools from MCP server"""
