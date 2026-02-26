@@ -186,5 +186,5 @@ When creating profiles, aim for diversity in:
 
 if __name__ == "__main__":
     mcp.run(
-        transport="streamable-http"
+        transport="stdio"
     )
